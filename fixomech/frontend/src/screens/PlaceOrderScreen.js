@@ -7,8 +7,8 @@ export default function PlaceOrderScreen(props) {
     if(!cart.paymentMethod){
         props.history.push('/payment');
     }
-    const toPrice =(num) =>Number(num.tofixe(2));
-    cart.itemsPriceitemsPrice = toPrice(cart.cartItems.reduce((a,c)=>a + c.qty *c.price , 0));
+    const toPrice =(num) => Number(num.toFixed(2));
+    cart.itemsPrice = toPrice(cart.cartItems.reduce((a,c)=>a + c.qty *c.price , 0));
     cart.shippingPrice = cart.itemsPrice > 100 ? toPrice(0) : toPrice(10);
     cart.taxPrice = toPrice(0.15* cart.itemsPrice);
     cart.totalPrice =  cart.itemsPrice+cart.shippingPrice+cart.taxPrice; 
@@ -74,29 +74,29 @@ export default function PlaceOrderScreen(props) {
                             <li>
                                 <div className="row">
                                     <div>Items</div>
-                                    <div>₹ {cart.itemsPrice}/-</div>
+                                    <div>₹ {cart.itemsPrice.toFixed(2)}/-</div>
                                 </div>
                             </li>
                             <li>
                                 <div className="row">
                                     <div>Shipping Price</div>
-                                    <div>₹ {cart.shippingPrice}/-</div>
+                                    <div>₹ {cart.shippingPrice.toFixed(2)}/-</div>
                                 </div>
                             </li>
                             <li>
                                 <div className="row">
                                     <div>Tax</div>
-                                    <div>₹ {cart.taxPrice}/-</div>
+                                    <div>₹ {cart.taxPrice.toFixed(2)}/-</div>
                                 </div>
                             </li>
                             <li>
                                 <div className="row">
                                     <div><strong>Order Total Amount</strong></div>
-                                    <div><strong>₹ {cart.totalPrice}/-</strong></div>
+                                    <div><strong>₹ {cart.totalPrice.toFixed(2)}/-</strong></div>
                                 </div>
                             </li>
                             <li>
-                                <button type="button" 
+                                <button type="button" className="primary block"
                                 onChange={placeOrderHandler} 
                                 placeholder="primary block"
                                 disabled={cart.cartItems.length ===0} >Place Order</button>
