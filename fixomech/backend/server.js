@@ -18,8 +18,9 @@ mongoose.connect(process.env.MONDODB_URL || 'mongodb://localhost/fixomech', {
 });
 app.use('/api/users', userRouter);
 app.use('/api/products', productRouter);
-app.use('/orders',orderRouter );
+app.use('/api/orders', orderRouter );
 app.get('/', (req, res) => {
+    console.log("in orders api");
     res.send("Server is Ready");
 });
 app.use((err, req, res, next) => {
