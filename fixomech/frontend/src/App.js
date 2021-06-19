@@ -11,7 +11,7 @@ import RegisterScreen from './screens/RegisterScreen';
 import ShippingAddressScreen from './screens/ShippingAddressScreen';
 import PaymentMethodScreen from './screens/PaymentMethodScreen';
 import PlaceOrderScreen from './screens/PlaceOrderScreen';
-
+import img from './images/fixomechLogo.png';
 function App() {
   const cart = useSelector((state) => state.cart);
   const { cartItems } = cart;
@@ -24,9 +24,9 @@ function App() {
   return (
     <BrowserRouter>
       <div className="grid-container">
-        <header className="row">
+        <header className="row header">
           <div>
-            <Link className="brand" to="/">FIXOMECH</Link>
+            <Link className="brand" to="/"><img className="logo" src={img} alt="FIXOMECH"></img></Link>
           </div>
           <div>
             <Link to="/cart">Cart{
@@ -51,6 +51,12 @@ function App() {
           </div>
         </header>
         <main>
+          <div className="row">
+            <div className="col-2">
+            <img className="medium" src={img} alt="FIXOMECH"></img>
+            </div>
+            
+          </div>
           <Route path="/cart/:id?" component={CartScreen}></Route>
           <Route path="/product/:id" component={ProductScreen}></Route>
           <Route path="/signin" component={SigninScreen}></Route>

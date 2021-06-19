@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import productRouter from './routers/productRouter.js';
 import userRouter from './routers/userRouter.js';
+import orderRouter from './routers/orderRouter.js';
 
 dotenv.config();
 const app = express();
@@ -17,6 +18,7 @@ mongoose.connect(process.env.MONDODB_URL || 'mongodb://localhost/fixomech', {
 });
 app.use('/api/users', userRouter);
 app.use('/api/products', productRouter);
+app.use('/orders',orderRouter );
 app.get('/', (req, res) => {
     res.send("Server is Ready");
 });
