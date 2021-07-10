@@ -28,7 +28,7 @@ body {
 }
 header {
   grid-area: header;
-  background-color: #708090;
+  background-color: #D2B48C;
 }
 main {
   grid-area: main;
@@ -36,8 +36,8 @@ main {
 }
 footer {
   grid-area: footer;
-  background-color: #203040;
-  color: #ffffff;
+  background-color:  #F4A460;
+  color: #203040;
 }
 /* Common */
 h1 {
@@ -51,6 +51,7 @@ h2 {
 
 a {
   text-decoration: none;
+  color: #00BFFF;
 }
 a:hover {
   color: #ff8000;
@@ -91,9 +92,12 @@ button.primary {
 button.block {
   width: 100%;
 }
+button.small{
+  font-size: 1.2rem;
+}
 /* Header */
 header a {
-  color: #ffffff;
+  color: #2020a0;
   padding: 1rem;
 }
 a.brand {
@@ -102,7 +106,7 @@ a.brand {
   font-weight: bold;
 }
 .badge {
-  background-color: #f02020;
+  background-color: #ff8000;
   color: #ffffff;
   border-radius: 50%;
   padding: 0.2rem 0.7rem;
@@ -183,6 +187,10 @@ img.large {
 .success {
   color: #20a020;
 }
+.alert-success {
+  color: #20a020;
+  background-color: #eeffe0;
+}
 .danger {
   color: #a02020;
 }
@@ -224,14 +232,14 @@ img.large {
   min-width: 12rem;
   padding: 1rem;
   z-index: 1;
-  background-color: #203040;
+  background-color: #e0e0ff;
   margin: 0;
   margin-top: 0.4rem;
   border-radius: 0.5rem;
 }
 .dropdown:hover .dropdown-content {
   display: block;
-}
+  background-color: #e0e0ff;}
 /* Checkout Steps */
 .checkout-steps > div {
   border-top: 0.3rem #c0c0c0 solid;
@@ -243,4 +251,21 @@ img.large {
 .checkout-steps > div.active {
   border-top-color: #f08000;
   color: #f08000;
+}
+
+/* Table */
+.table{
+  width : 100%,
+}
+.table tbody tr:nth-of-type(odd){
+background-color: #f4f4f4;
+}
+.table td, .table th{
+ text-align: left;
+ border: 0.1rem solid #e4e4e4;
+ padding: 0.5rem;
+}
+
+.table button{
+  margin: 0 0.2rem;
 }

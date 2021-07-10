@@ -12,6 +12,8 @@ import ShippingAddressScreen from './screens/ShippingAddressScreen';
 import PaymentMethodScreen from './screens/PaymentMethodScreen';
 import PlaceOrderScreen from './screens/PlaceOrderScreen';
 import img from './images/fixomechLogo.png';
+import OrderScreen from './screens/OrderScreen';
+import OrderHostoryScreen from './screens/OrderHistoryScreen';
 function App() {
   const cart = useSelector((state) => state.cart);
   const { cartItems } = cart;
@@ -29,7 +31,7 @@ function App() {
             <Link className="brand" to="/"><img className="logo" src={img} alt="FIXOMECH"></img></Link>
           </div>
           <div>
-            <Link to="/cart">Cart{
+            <Link to="/cart"><i className="fa fa-shopping-bag"></i>{
               cartItems.length > 0 && (
                 <span className="badge">{cartItems.length}</span>
               )
@@ -40,9 +42,13 @@ function App() {
                   <div className="dropdown">
                     <Link to="#">{userInfo.name} <i className="fa fa-caret-down"></i></Link>
                     <ul className="dropdown-content">
-                      <Link to="#signout" onClick={signoutHandler}>
+                      <li>
+                        <Link to="/orderhistory">Order History</Link>
+                      </li>
+                      <li><Link to="#signout" onClick={signoutHandler}>
                         Sign Out
-                      </Link>
+                      </Link></li>
+                      
                     </ul>
                   </div>
                 ) :
@@ -50,6 +56,7 @@ function App() {
             }
           </div>
         </header>
+        <hr/>
         <main>
           <div className="row">
             <div className="col-2">
@@ -64,6 +71,8 @@ function App() {
           <Route path="/shipping" component={ShippingAddressScreen}></Route>
           <Route path="/payment" component={PaymentMethodScreen}></Route>
           <Route path="/placeorder" component={PlaceOrderScreen}></Route>
+          <Route path="/order/:id" component={OrderScreen}></Route>
+          <Route path="/orderhistory" component={OrderHostoryScreen}></Route>
           <Route path="/" component={HomeScreen} exact></Route>
         </main>
         <footer className="row center">All right reserved</footer>

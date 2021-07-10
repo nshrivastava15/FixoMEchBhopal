@@ -19,6 +19,10 @@ mongoose.connect(process.env.MONDODB_URL || 'mongodb://localhost/fixomech', {
 app.use('/api/users', userRouter);
 app.use('/api/products', productRouter);
 app.use('/api/orders', orderRouter );
+app.get('/api/config/paypal', (req, res)=>{
+    // eslint-disable-next-line no-undef
+    res.send(process.env.PAYPAL_CLIENT_ID || 'sb');
+})
 app.get('/', (req, res) => {
     console.log("in orders api");
     res.send("Server is Ready");
