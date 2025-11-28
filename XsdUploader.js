@@ -1,30 +1,43 @@
 import React, { useState } from "react";
-import { Input, Button, Card } from "antd";
 import axios from "axios";
 
-export default function XsdUploader({ onDataLoaded }) {
-  const [path, setPath] = useState("");
+function XsdUploader() {
+  const [file, setFile] = useState(null);
+  const [result, setResult] = useState(null);
 
-  const processXsd = async () => {
-    const res = await axios.get("http://localhost:8080/api/xsd/process", {
-      params: { xsdPath: path },
+  const uploadFile = async () => {
+    if (!file) return alert("Choose a file first");
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const resp = await axios.post("http://localhost:8080/api/xsd/parse", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
     });
 
-    onDataLoaded(res.data);
+    setResult(resp.data);
   };
 
   return (
-    <Card title="Load XSD" style={{ marginBottom: 20 }}>
-      <Input
-        placeholder="Enter XSD file path (e.g. /Users/nikhil/pacs008.xsd)"
-        value={path}
-        onChange={(e) => setPath(e.target.value)}
-        style={{ marginBottom: 10 }}
+    <div style={{ padding: 20 }}>
+      <h2>Upload ISO XSD File</h2>
+
+      <input
+        type="file"
+        accept=".xsd"
+        onChange={(e) => setFile(e.target.files[0])}
       />
 
-      <Button type="primary" onClick={processXsd}>
-        Process XSD
-      </Button>
-    </Card>
+      <button onClick={uploadFile}>Parse</button>
+
+      {result && (
+        <div style={{ marginTop: 20 }}>
+          <h3>XSD Tree</h3>
+          <pre>{JSON.stringify(result, null, 2)}</pre>
+        </div>
+      )}
+    </div>
   );
 }
+
+export default XsdUploader;
