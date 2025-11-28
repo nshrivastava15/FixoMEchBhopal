@@ -3,9 +3,11 @@ package com.example.demo.service;
 import org.apache.ws.commons.schema.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.w3c.dom.Document;
 
 import javax.xml.namespace.QName;
-import javax.xml.transform.stream.StreamSource;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.InputStream;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -17,7 +19,7 @@ public class XsdParserService {
     private final Map<String, String> elementTree = new LinkedHashMap<>();
 
     /**
-     * Parse XSD from uploaded MultipartFile with full logging
+     * Parse XSD from uploaded MultipartFile with logging
      */
     public Map<String, String> parseXsd(MultipartFile file) throws Exception {
         System.out.println("=== parseXsd START ===");
@@ -31,10 +33,18 @@ public class XsdParserService {
         System.out.println("File size: " + file.getSize() + " bytes");
 
         try (InputStream is = file.getInputStream()) {
-            System.out.println("Reading schema from input stream...");
+
+            // Parse InputStream into W3C Document
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            factory.setNamespaceAware(true);
+            DocumentBuilder builder = factory.newDocumentBuilder();
+            Document document = builder.parse(is);
+
+            System.out.println("Parsed InputStream into Document.");
+
             XmlSchemaCollection collection = new XmlSchemaCollection();
-            StreamSource source = new StreamSource(is);
-            schema = collection.read(source, null);
+            schema = collection.read(document, file.getOriginalFilename());
+
             System.out.println("Schema loaded successfully. Target namespace: " + schema.getTargetNamespace());
 
             elementTree.clear();
