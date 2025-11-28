@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.xml.namespace.QName;
+import javax.xml.transform.stream.StreamSource;
 import java.io.InputStream;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -16,7 +17,7 @@ public class XsdParserService {
     private final Map<String, String> elementTree = new LinkedHashMap<>();
 
     /**
-     * Parse XSD from uploaded MultipartFile with full logging
+     * Parse XSD from uploaded MultipartFile with logging
      */
     public Map<String, String> parseXsd(MultipartFile file) throws Exception {
         System.out.println("=== parseXsd START ===");
@@ -32,7 +33,8 @@ public class XsdParserService {
         try (InputStream is = file.getInputStream()) {
             System.out.println("Reading schema from input stream...");
             XmlSchemaCollection collection = new XmlSchemaCollection();
-            schema = collection.read(is, null);
+            StreamSource source = new StreamSource(is);
+            schema = collection.read(source, null);
             System.out.println("Schema loaded successfully. Target namespace: " + schema.getTargetNamespace());
 
             elementTree.clear();
