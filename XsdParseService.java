@@ -17,7 +17,7 @@ public class XsdParserService {
     private final Map<String, String> elementTree = new LinkedHashMap<>();
 
     /**
-     * Parse XSD from uploaded MultipartFile with logging
+     * Parse XSD from uploaded MultipartFile with full logging
      */
     public Map<String, String> parseXsd(MultipartFile file) throws Exception {
         System.out.println("=== parseXsd START ===");
@@ -52,7 +52,7 @@ public class XsdParserService {
         } catch (Exception e) {
             System.out.println("Exception while reading/parsing schema:");
             e.printStackTrace();
-            throw e; // propagate to controller
+            throw e;
         }
 
         System.out.println("=== parseXsd END === Total elements: " + elementTree.size());
@@ -101,30 +101,30 @@ public class XsdParserService {
 
             // SEQUENCE
             else if (particle instanceof XmlSchemaSequence sequence) {
-                for (XmlSchemaObject obj : sequence.getItems()) {
-                    if (obj instanceof XmlSchemaElement el) {
+                for (XmlSchemaSequenceMember member : sequence.getItems()) {
+                    if (member instanceof XmlSchemaElement el) {
                         processElement(el, parentPath + "/" + el.getName());
-                    } else if (obj instanceof XmlSchemaSequence seq) {
+                    } else if (member instanceof XmlSchemaSequence seq) {
                         processParticle(seq, parentPath);
-                    } else if (obj instanceof XmlSchemaChoice choice) {
+                    } else if (member instanceof XmlSchemaChoice choice) {
                         processParticle(choice, parentPath);
                     } else {
-                        System.out.println("Unknown object in sequence: " + obj.getClass().getSimpleName());
+                        System.out.println("Unknown member in sequence: " + member.getClass().getSimpleName());
                     }
                 }
             }
 
             // CHOICE
             else if (particle instanceof XmlSchemaChoice choice) {
-                for (XmlSchemaObject obj : choice.getItems()) {
-                    if (obj instanceof XmlSchemaElement el) {
+                for (XmlSchemaChoiceMember member : choice.getItems()) {
+                    if (member instanceof XmlSchemaElement el) {
                         processElement(el, parentPath + "/" + el.getName());
-                    } else if (obj instanceof XmlSchemaSequence seq) {
+                    } else if (member instanceof XmlSchemaSequence seq) {
                         processParticle(seq, parentPath);
-                    } else if (obj instanceof XmlSchemaChoice nestedChoice) {
+                    } else if (member instanceof XmlSchemaChoice nestedChoice) {
                         processParticle(nestedChoice, parentPath);
                     } else {
-                        System.out.println("Unknown object in choice: " + obj.getClass().getSimpleName());
+                        System.out.println("Unknown member in choice: " + member.getClass().getSimpleName());
                     }
                 }
             }
