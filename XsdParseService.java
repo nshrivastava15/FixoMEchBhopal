@@ -1,111 +1,139 @@
 package com.example.isoxsd.service;
 
 import com.example.isoxsd.model.XsdNode;
-import org.apache.xmlbeans.impl.schema.SchemaTypeSystemImpl; // Not used; we use xmlschema-core classes
 import org.apache.ws.commons.schema.*;
-import org.apache.ws.commons.schema.utils.*;
 import org.springframework.stereotype.Service;
 
+import javax.xml.namespace.QName;
 import java.io.InputStream;
-import java.util.*;
+import java.util.List;
 
 @Service
 public class XsdParseService {
 
-    /**
-     * Parse input XSD stream and return root XsdNode(s).
-     */
-    public List<XsdNode> parse(InputStream xsdInputStream) throws Exception {
-        XmlSchemaCollection schemaCol = new XmlSchemaCollection();
-        XmlSchema schema = schemaCol.read(xsdInputStream, null);
+    public XsdNode parseRoot(InputStream xsdIn) throws Exception {
+        XmlSchemaCollection col = new XmlSchemaCollection();
+        XmlSchema schema = col.read(xsdIn, null);
 
-        // find global elements named Document or root elements
-        List<XsdNode> roots = new ArrayList<>();
+        // find the Document root element (ISO)
         for (XmlSchemaElement el : schema.getElements().values()) {
-            String elName = el.getName();
-            // Many ISO schemas have root named "Document"
-            if (elName != null && (elName.equals("Document") || elName.equals("document"))) {
-                XsdNode rootNode = new XsdNode(elName, elName);
-                processElement(el, rootNode, schemaCol);
-                roots.add(rootNode);
+            if ("Document".equalsIgnoreCase(el.getName())) {
+                XsdNode root = new XsdNode(el.getName(), el.getName());
+                processElement(resolveElementRef(el, col), root, col);
+                return root;
             }
         }
 
-        // fallback: if no Document element found, add all global elements as roots
-        if (roots.isEmpty()) {
-            for (XmlSchemaElement el : schema.getElements().values()) {
-                String elName = el.getName();
-                XsdNode rootNode = new XsdNode(elName, elName);
-                processElement(el, rootNode, schemaCol);
-                roots.add(rootNode);
-            }
+        // fallback: return first global element
+        for (XmlSchemaElement el : schema.getElements().values()) {
+            XsdNode root = new XsdNode(el.getName(), el.getName());
+            processElement(resolveElementRef(el, col), root, col);
+            return root;
         }
-
-        return roots;
+        return null;
     }
 
-    private void processElement(XmlSchemaElement element, XsdNode node, XmlSchemaCollection schemaCol) {
-        // set repeating if maxOccurs > 1
-        if (element.getMaxOccurs() > 1 || element.getMaxOccurs() == Long.MAX_VALUE) {
+    private void processElement(XmlSchemaElement element, XsdNode node, XmlSchemaCollection col) {
+        if (element == null) return;
+
+        // mark repeating
+        if (element.getMaxOccurs() > 1 || element.getMaxOccurs() == XmlSchemaElement.UNBOUNDED) {
             node.setRepeating(true);
         }
 
-        XmlSchemaType schemaType = element.getSchemaType();
-        if (schemaType == null && element.getSchemaTypeName() != null) {
-            // named type reference; try to resolve
-            schemaType = schemaCol.getTypeByQName(element.getSchemaTypeName());
+        XmlSchemaType type = element.getSchemaType();
+        if (type == null && element.getSchemaTypeName() != null) {
+            type = col.getTypeByQName(element.getSchemaTypeName());
         }
 
-        if (schemaType instanceof XmlSchemaComplexType) {
-            XmlSchemaComplexType complex = (XmlSchemaComplexType) schemaType;
+        if (type instanceof XmlSchemaComplexType) {
+            XmlSchemaComplexType complex = (XmlSchemaComplexType) type;
             XmlSchemaParticle particle = complex.getParticle();
-            if (particle instanceof XmlSchemaSequence) {
-                XmlSchemaSequence seq = (XmlSchemaSequence) particle;
-                for (XmlSchemaSequenceMember member : seq.getItems()) {
-                    if (member instanceof XmlSchemaElement) {
-                        XmlSchemaElement childEl = (XmlSchemaElement) member;
-                        String childPath = node.getPath() + "/" + childEl.getName();
-                        XsdNode childNode = new XsdNode(childEl.getName(), childPath);
-                        // mark repeating
-                        if (childEl.getMaxOccurs() > 1 || childEl.getMaxOccurs() == Long.MAX_VALUE) {
-                            childNode.setRepeating(true);
-                        }
-                        node.getChildren().add(childNode);
-                        // recursive — resolve child element's type definition (may be ref)
-                        XmlSchemaElement resolved = resolveElementRef(childEl, schemaCol);
-                        processElement(resolved, childNode, schemaCol);
-                    }
-                }
-            } else if (particle instanceof XmlSchemaChoice) {
-                XmlSchemaChoice choice = (XmlSchemaChoice) particle;
-                for (XmlSchemaSequenceMember member : choice.getItems()) {
-                    if (member instanceof XmlSchemaElement) {
-                        XmlSchemaElement childEl = (XmlSchemaElement) member;
-                        String childPath = node.getPath() + "/" + childEl.getName();
-                        XsdNode childNode = new XsdNode(childEl.getName(), childPath);
-                        node.getChildren().add(childNode);
-                        XmlSchemaElement resolved = resolveElementRef(childEl, schemaCol);
-                        processElement(resolved, childNode, schemaCol);
-                    }
-                }
-            }
-            // attributes and other constructs are ignored for ISO message tree
-        } else if (schemaType instanceof XmlSchemaSimpleType) {
-            // simple type: determine base XSD primitive
-            node.setType(schemaType.getName());
+            processParticle(particle, node, col);
         } else {
-            // If type is null or not resolved, attempt to check element schemaTypeName (primitive)
+            // simple type or unresolved — set type name if available
             if (element.getSchemaTypeName() != null) {
                 node.setType(element.getSchemaTypeName().getLocalPart());
             }
         }
     }
 
-    private XmlSchemaElement resolveElementRef(XmlSchemaElement el, XmlSchemaCollection coll) {
-        if (el.getRefName() != null) {
-            XmlSchemaElement resolved = coll.getElementByQName(el.getRefName());
-            return resolved != null ? resolved : el;
+    private void processParticle(XmlSchemaParticle particle, XsdNode parent, XmlSchemaCollection col) {
+        if (particle == null) return;
+
+        if (particle instanceof XmlSchemaSequence) {
+            XmlSchemaSequence seq = (XmlSchemaSequence) particle;
+            for (XmlSchemaObject obj : seq.getItems()) {
+                handleParticleItem(obj, parent, col);
+            }
+        } else if (particle instanceof XmlSchemaChoice) {
+            XmlSchemaChoice choice = (XmlSchemaChoice) particle;
+            for (XmlSchemaObject obj : choice.getItems()) {
+                handleParticleItem(obj, parent, col);
+            }
+        } else if (particle instanceof XmlSchemaAll) {
+            XmlSchemaAll all = (XmlSchemaAll) particle;
+            for (XmlSchemaObject obj : all.getItems()) {
+                handleParticleItem(obj, parent, col);
+            }
+        } else if (particle instanceof XmlSchemaGroupRef) {
+            // handle groupRef: resolve the group's particle and process it
+            XmlSchemaGroupRef grpRef = (XmlSchemaGroupRef) particle;
+            XmlSchemaGroup group = col.getGroupByQName(grpRef.getRef());
+            if (group != null && group.getParticle() != null) {
+                processParticle(group.getParticle(), parent, col);
+            }
         }
+    }
+
+    private void handleParticleItem(XmlSchemaObject item, XsdNode parent, XmlSchemaCollection col) {
+        if (item instanceof XmlSchemaElement) {
+            XmlSchemaElement childEl = (XmlSchemaElement) item;
+            XmlSchemaElement resolved = resolveElementRef(childEl, col);
+            String childName = resolved.getName();
+            String childPath = parent.getPath() + "/" + childName;
+            XsdNode childNode = new XsdNode(childName, childPath);
+            // repeating
+            if (resolved.getMaxOccurs() > 1 || resolved.getMaxOccurs() == XmlSchemaElement.UNBOUNDED) {
+                childNode.setRepeating(true);
+            }
+            parent.getChildren().add(childNode);
+            // recurse into child's type
+            processElement(resolved, childNode, col);
+        } else if (item instanceof XmlSchemaSequence) {
+            processParticle((XmlSchemaSequence) item, parent, col);
+        } else if (item instanceof XmlSchemaChoice) {
+            processParticle((XmlSchemaChoice) item, parent, col);
+        } else if (item instanceof XmlSchemaGroupRef) {
+            XmlSchemaGroupRef ref = (XmlSchemaGroupRef) item;
+            XmlSchemaGroup group = col.getGroupByQName(ref.getRef());
+            if (group != null && group.getParticle() != null) {
+                processParticle(group.getParticle(), parent, col);
+            }
+        } else {
+            // other types (e.g. annotations) — ignore
+        }
+    }
+
+    /**
+     * Resolve element reference (if 'ref' used) to the actual global element.
+     */
+    private XmlSchemaElement resolveElementRef(XmlSchemaElement el, XmlSchemaCollection col) {
+        if (el == null) return null;
+
+        // If it has a local ref (getRef() returns XmlSchemaRef), use it to find the global element
+        if (el.getRef() != null) {
+            QName refQName = el.getRef().getTargetQName();
+            XmlSchemaElement resolved = col.getElementByQName(refQName);
+            if (resolved != null) return resolved;
+        }
+
+        // if it has a 'refName' style in certain versions:
+        if (el.getRefName() != null) {
+            XmlSchemaElement resolved = col.getElementByQName(el.getRefName());
+            if (resolved != null) return resolved;
+        }
+
         return el;
     }
 }
