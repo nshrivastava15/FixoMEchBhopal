@@ -43,4 +43,26 @@ public class XsdController {
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .body(jarBytes);
     }
+    @RestController
+@RequestMapping("/api/xsd")
+public class XsdController {
+
+    private final XsdParserService xsdParserService;
+
+    public XsdController(XsdParserService xsdParserService) {
+        this.xsdParserService = xsdParserService;
+    }
+
+    @PostMapping(value = "/parse", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Map<String, String>> parseXsd(@RequestParam("file") MultipartFile file) {
+        try {
+            Map<String, String> result = xsdParserService.parseXsd(file);
+            return ResponseEntity.ok(result);
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+}
 }
