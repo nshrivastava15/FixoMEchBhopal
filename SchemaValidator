@@ -1,0 +1,322 @@
+package com.iso.mongo.model;
+
+import lombok.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+
+import java.util.List;
+
+@Document(collection = "schemas")
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class SchemaDocument {
+
+    @Id
+    private String id;
+
+    private String messageType;   // pacs.008
+    private String version;       // 001.08
+    private String namespace;
+
+    private List<FieldNode> fields;
+}
+----------
+package com.iso.mongo.model;
+
+import lombok.*;
+
+import java.util.List;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class FieldNode {
+
+    private String name;
+
+    private String path;          // /GrpHdr/MsgId
+
+    private String type;          // string, dateTime, complex
+
+    private boolean required;
+
+    private Integer minLength;
+
+    private Integer maxLength;
+
+    private Integer minOccurs;
+
+    private Integer maxOccurs;
+
+    private List<String> enumValues;
+
+    private List<FieldNode> children;
+}
+------
+package com.iso.mongo.model;
+
+import lombok.*;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class ValidationRule {
+
+    private String fieldPath;
+
+    private boolean required;
+
+    private Integer minLength;
+
+    private Integer maxLength;
+
+    private String regex;
+
+    private List<String> allowedValues;
+}
+------
+package com.iso.mongo.repo;
+
+import com.iso.mongo.model.SchemaDocument;
+import org.springframework.data.mongodb.repository.MongoRepository;
+
+import java.util.Optional;
+
+public interface SchemaRepository
+        extends MongoRepository<SchemaDocument, String> {
+
+    Optional<SchemaDocument> findByMessageTypeAndVersion(
+            String messageType,
+            String version
+    );
+}
+-----
+package com.iso.parser;
+
+import com.iso.mongo.model.*;
+import com.iso.mongo.repo.SchemaRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.w3c.dom.*;
+
+import javax.xml.parsers.DocumentBuilderFactory;
+import java.io.File;
+import java.util.*;
+
+@Service
+@RequiredArgsConstructor
+public class XsdParserService {
+
+    private final SchemaRepository repository;
+
+    public SchemaDocument parseXsd(
+            String filePath,
+            String messageType,
+            String version,
+            String namespace
+    ) throws Exception {
+
+        Document doc = DocumentBuilderFactory
+                .newInstance()
+                .newDocumentBuilder()
+                .parse(new File(filePath));
+
+        NodeList elements =
+                doc.getElementsByTagName("xs:element");
+
+        List<FieldNode> fields = new ArrayList<>();
+
+        for (int i = 0; i < elements.getLength(); i++) {
+
+            Element el = (Element) elements.item(i);
+
+            String name = el.getAttribute("name");
+            String type = el.getAttribute("type");
+
+            if (name == null || name.isBlank()) continue;
+
+            FieldNode node = FieldNode.builder()
+                    .name(name)
+                    .path("/" + name)
+                    .type(type)
+                    .required(!"0".equals(el.getAttribute("minOccurs")))
+                    .minOccurs(parseInt(el.getAttribute("minOccurs"), 1))
+                    .maxOccurs(parseMax(el.getAttribute("maxOccurs")))
+                    .build();
+
+            fields.add(node);
+        }
+
+        SchemaDocument schema = SchemaDocument.builder()
+                .messageType(messageType)
+                .version(version)
+                .namespace(namespace)
+                .fields(fields)
+                .build();
+
+        return repository.save(schema);
+    }
+
+    private Integer parseInt(String v, Integer def) {
+        try {
+            return (v == null || v.isBlank()) ? def : Integer.parseInt(v);
+        } catch (Exception e) {
+            return def;
+        }
+    }
+
+    private Integer parseMax(String v) {
+        if (v == null || v.isBlank()) return 1;
+        if ("unbounded".equals(v)) return Integer.MAX_VALUE;
+        return Integer.parseInt(v);
+    }
+}
+------
+package com.iso.validation;
+
+import com.iso.mongo.model.ValidationRule;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.List;
+
+@Service
+public class ValidationEngine {
+
+    public List<String> validate(
+            String value,
+            ValidationRule rule
+    ) {
+
+        List<String> errors = new ArrayList<>();
+
+        if (rule.isRequired()
+                && (value == null || value.isBlank())) {
+            errors.add("Field required");
+        }
+
+        if (value != null) {
+
+            if (rule.getMinLength() != null
+                    && value.length() < rule.getMinLength()) {
+                errors.add("Min length violated");
+            }
+
+            if (rule.getMaxLength() != null
+                    && value.length() > rule.getMaxLength()) {
+                errors.add("Max length violated");
+            }
+
+            if (rule.getRegex() != null
+                    && !value.matches(rule.getRegex())) {
+                errors.add("Regex mismatch");
+            }
+
+            if (rule.getAllowedValues() != null
+                    && !rule.getAllowedValues().isEmpty()
+                    && !rule.getAllowedValues().contains(value)) {
+                errors.add("Invalid enum value");
+            }
+        }
+
+        return errors;
+    }
+}
+
+-------
+package com.iso.service;
+
+import com.iso.mongo.model.SchemaDocument;
+import com.iso.mongo.repo.SchemaRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.util.Optional;
+
+@Service
+@RequiredArgsConstructor
+public class SchemaService {
+
+    private final SchemaRepository repository;
+
+    public Optional<SchemaDocument> getSchema(
+            String messageType,
+            String version
+    ) {
+        return repository.findByMessageTypeAndVersion(
+                messageType,
+                version
+        );
+    }
+}
+------
+package com.iso.api;
+
+import com.iso.mongo.model.SchemaDocument;
+import com.iso.parser.XsdParserService;
+import com.iso.service.SchemaService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/schema")
+@RequiredArgsConstructor
+public class SchemaController {
+
+    private final XsdParserService parserService;
+    private final SchemaService schemaService;
+
+    @PostMapping("/load")
+    public SchemaDocument load(
+            @RequestParam String filePath,
+            @RequestParam String messageType,
+            @RequestParam String version,
+            @RequestParam String namespace
+    ) throws Exception {
+
+        return parserService.parseXsd(
+                filePath,
+                messageType,
+                version,
+                namespace
+        );
+    }
+
+    @GetMapping
+    public SchemaDocument get(
+            @RequestParam String messageType,
+            @RequestParam String version
+    ) {
+        return schemaService
+                .getSchema(messageType, version)
+                .orElse(null);
+    }
+}
+----
+<!-- Jackson Core -->
+<dependency>
+    <groupId>com.fasterxml.jackson.core</groupId>
+    <artifactId>jackson-core</artifactId>
+</dependency>
+
+<!-- Jackson Databind -->
+<dependency>
+    <groupId>com.fasterxml.jackson.core</groupId>
+    <artifactId>jackson-databind</artifactId>
+</dependency>
+
+<!-- Jackson Annotations -->
+<dependency>
+    <groupId>com.fasterxml.jackson.core</groupId>
+    <artifactId>jackson-annotations</artifactId>
+</dependency>
+
+<!-- Optional but very useful for ISO date handling -->
+<dependency>
+    <groupId>com.fasterxml.jackson.datatype</groupId>
+    <artifactId>jackson-datatype-jsr310</artifactId>
+</dependency>
